@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-Means Image Compression | Interactive Demo</title>
+    <style>
+        :root {
+            --bg-color: #f4f7f9;
+            --panel-bg: #ffffff;
+            --text-primary: #38545f;
+            --text-secondary: #6c8590;
+            --brand-blue: #0771A4;
+            --brand-blue-hover: #065f8a;
+            --border-color: #e1e8ed;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header --- */
+        header {
+            background: var(--panel-bg);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--brand-blue);
+        }
+
+        header span {
+            color: var(--text-secondary);
+            font-weight: 400;
+            font-size: 0.9rem;
+            margin-left: 10px;
+        }
+
+        /* --- Main Layout --- */
+        .app-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            /* Prevent body scroll */
+        }
+
+        /* Sidebar Controls */
+        aside {
+            width: 320px;
+            background: var(--panel-bg);
+            border-right: 1px solid var(--border-color);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            overflow-y: auto;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        /* Inputs */
+        input[type="file"] {
+            font-size: 0.9rem;
+            padding: 0.5rem;
+            border: 2px dashed var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        input[type="file"]:hover {
+            border-color: var(--brand-blue);
+            background: #f0f7fa;
+        }
+
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            accent-color: var(--brand-blue);
+            cursor: pointer;
+        }
+
+        input[type="number"] {
+            width: 60px;
+            padding: 4px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        select {
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: white;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        /* Buttons */
+        .btn {
+            background-color: var(--brand-blue);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background-color: var(--brand-blue-hover);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background-color: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            border: 1px solid var(--brand-blue);
+            color: var(--brand-blue);
+            padding: 8px;
+            font-size: 0.9rem;
+        }
+
+        .btn-secondary:hover {
+            background-color: #f0f7fa;
+        }
+
+        /* Palette Display */
+        #palette-display {
+            display: flex;
+            height: 24px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 5px;
+            border: 1px solid var(--border-color);
+        }
+
+        .palette-swatch {
+            flex: 1;
+            height: 100%;
+            transition: flex 0.3s;
+        }
+
+        .palette-swatch:hover {
+            flex: 2;
+        }
+
+        /* Grow on hover */
+
+        /* --- Viewer Area --- */
+        main {
+            flex: 1;
+            background-color: #333;
+            /* Darker background makes images pop */
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            background: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            box-shadow: var(--shadow-sm);
+            align-items: center;
+            z-index: 20;
+            /* Keep toolbar above image */
+        }
+
+        /* View Toggles */
+        .view-toggles {
+            display: flex;
+            gap: 0.5rem;
+            background: #f0f2f5;
+            padding: 4px;
+            border-radius: 6px;
+        }
+
+        .toggle-btn {
+            padding: 6px 12px;
+            border: none;
+            background: transparent;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .toggle-btn.active {
+            background: white;
+            color: var(--brand-blue);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* The Stage */
+        #stage {
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+            /* Hide parts of image panned off screen */
+            cursor: grab;
+        }
+
+        #stage:active {
+            cursor: grabbing;
+        }
+
+        /* The Content Wrapper (Moves/Zooms) */
+        #pan-zoom-container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            /* Center anchor */
+            transform: translate(-50%, -50%);
+            /* Center anchor */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transform-origin: center center;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+            /* Shadow behind the image board */
+        }
+
+        /* View Mode: Split */
+        .view-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+            /* Tiny gap for black line */
+            background: black;
+        }
+
+        .view-split.vertical {
+            grid-template-columns: 1fr;
+            grid-template-rows: 1fr 1fr;
+        }
+
+        /* Canvas/Image Resets */
+        canvas,
+        img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* View Mode: Slider */
+        .view-slider-container {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .img-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            /* This crops the content */
+        }
+
+        /* The actual image inside the clipped layer must NOT shrink */
+        .img-layer canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            /* Dimensions will be set via JS to match parent container exactly */
+        }
+
+        /* Slider Handle */
+        .slider-handle {
+            position: absolute;
+            background: var(--brand-blue);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Horizontal Handle (Left/Right) */
+        .slider-handle.h {
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            cursor: col-resize;
+        }
+
+        .slider-circle {
+            width: 32px;
+            height: 32px;
+            background: white;
+            border: 2px solid var(--brand-blue);
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--brand-blue);
+            position: absolute;
+        }
+
+        /* Loading Overlay */
+        #loader {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        #loader.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--brand-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div style="display:flex; align-items:baseline;">
+            <h1>Image Quantizer</h1>
+            <span>Using K-Means algorithm</span>
+        </div>
+        <div style="font-size: 0.8rem; color: var(--text-secondary);">
+            v2.0 by Miles
+        </div>
+    </header>
+
+    <div class="app-container">
+        <aside>
+            <div class="control-group">
+                <label>1. Source Image</label>
+                <input type="file" id="file-input" accept="image/*">
+                <div style="display:flex; justify-content:space-between; margin-top:5px;">
+                    <label style="font-size:0.7rem; color:#999;">Quality:</label>
+                    <select id="quality-select" style="font-size:0.8rem; padding:2px;">
+                        <option value="600">Fast (600px)</option>
+                        <option value="1000" selected>Balanced (1000px)</option>
+                        <option value="1600">High (1600px)</option>
+                        <option value="0">Original (Slower)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>2. Cluster Count (K)</label>
+                <div class="slider-row">
+                    <!-- Changed max to 512 -->
+                    <input type="range" id="k-slider" min="2" max="512" value="8" step="1">
+                    <input type="number" id="k-number" min="2" max="512" value="8">
+                </div>
+                <div id="palette-display" title="The learned color palette"></div>
+            </div>
+
+            <div class="control-group">
+                <button id="run-btn" class="btn" disabled>
+                    <span>Quantize</span>
+                </button>
+                <button id="download-btn" class="btn btn-secondary" style="display:none; width:100%;">
+                    Download Quantized Image
+                </button>
+            </div>
+
+            <div class="control-group">
+                <label>Stats</label>
+                <div id="stats" style="font-size:0.85rem; color:var(--text-secondary); line-height:1.5;">
+                    Waiting for image...
+                </div>
+            </div>
+        </aside>
+
+        <main>
+            <div class="toolbar">
+                <div class="view-toggles">
+                    <button class="toggle-btn" data-mode="split-h" title="Side by Side">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <rect x="3" y="3" width="18" height="18" rx="2" />
+                            <line x1="12" y1="3" x2="12" y2="21" />
+                        </svg>
+                        Side-by-Side
+                    </button>
+
+                    <button class="toggle-btn active" data-mode="slider-h" title="Swipe Left/Right">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="7 8 3 12 7 16" />
+                            <polyline points="17 8 21 12 17 16" />
+                            <line x1="12" y1="3" x2="12" y2="21" />
+                        </svg>
+                        Slider (H)
+                    </button>
+
+                    <button class="toggle-btn" data-mode="slider-v" title="Swipe Up/Down">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <polyline points="8 7 12 3 16 7" />
+                            <polyline points="8 17 12 21 16 17" />
+                            <line x1="3" y1="12" x2="21" y2="12" />
+                        </svg>
+                        Slider (V)
+                    </button>
+                </div>
+            </div>
+
+            <div id="stage">
+                <!-- Content injected via JS -->
+                <div style="color:#ccc; text-align:center;">
+                    <h3 style="margin:0;">No Image Loaded</h3>
+                    <p>Upload a file to begin.</p>
+                </div>
+            </div>
+
+            <div id="loader">
+                <div class="spinner"></div>
+                <p style="margin-top:10px; font-weight:600; color:var(--text-primary);">Processing...</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- WORKER SCRIPT TEMPLATE -->
+    <script id="worker-code" type="javascript/worker">
+    self.onmessage = function(e) {
+        const { pixels, width, height, k } = e.data;
+        const startTime = performance.now();
+
+        // 1. Sampling for speed (max 2500 pixels)
+        const sampleSize = 2500;
+        const step = Math.max(1, Math.floor(pixels.length / 4 / sampleSize));
+        const samples = [];
+        
+        for (let i = 0; i < pixels.length; i += 4 * step) {
+            samples.push([pixels[i], pixels[i+1], pixels[i+2]]);
+        }
+
+        // 2. K-Means Training
+        let centroids = samples.slice(0, k).map(p => [...p]);
+        // If not enough samples, fill with randoms
+        while (centroids.length < k) {
+             centroids.push([Math.random()*255, Math.random()*255, Math.random()*255]);
+        }
+
+        const maxIter = 20;
+        for (let iter = 0; iter < maxIter; iter++) {
+            const assignments = new Array(samples.length);
+            const sums = new Array(k).fill(0).map(() => [0,0,0]);
+            const counts = new Array(k).fill(0);
+
+            // Assign
+            for (let i = 0; i < samples.length; i++) {
+                let minDist = Infinity;
+                let idx = 0;
+                const p = samples[i];
+                for (let j = 0; j < k; j++) {
+                    const c = centroids[j];
+                    const d = (p[0]-c[0])**2 + (p[1]-c[1])**2 + (p[2]-c[2])**2;
+                    if (d < minDist) { minDist = d; idx = j; }
+                }
+                assignments[i] = idx;
+                sums[idx][0] += p[0];
+                sums[idx][1] += p[1];
+                sums[idx][2] += p[2];
+                counts[idx]++;
+            }
+
+            // Update
+            let moved = false;
+            for (let j = 0; j < k; j++) {
+                if (counts[j] > 0) {
+                    const newR = sums[j][0] / counts[j];
+                    const newG = sums[j][1] / counts[j];
+                    const newB = sums[j][2] / counts[j];
+                    
+                    const dist = (newR-centroids[j][0])**2 + (newG-centroids[j][1])**2 + (newB-centroids[j][2])**2;
+                    if (dist > 1) moved = true;
+
+                    centroids[j] = [newR, newG, newB];
+                } else {
+                    // Re-init empty cluster
+                    const randSample = samples[Math.floor(Math.random() * samples.length)];
+                    centroids[j] = [...randSample];
+                    moved = true;
+                }
+            }
+            if (!moved) break;
+        }
+
+        // Final Round Centroids
+        const finalPalette = centroids.map(c => c.map(Math.round));
+
+        // 3. Map all pixels to nearest centroid
+        const newBuffer = new Uint8ClampedArray(pixels.length);
+        
+        for (let i = 0; i < pixels.length; i += 4) {
+            const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+            let minDist = Infinity;
+            let bestC = finalPalette[0];
+
+            for (let j = 0; j < k; j++) {
+                const c = finalPalette[j];
+                // Euclidean squared
+                const dist = (r-c[0])**2 + (g-c[1])**2 + (b-c[2])**2;
+                if (dist < minDist) {
+                    minDist = dist;
+                    bestC = c;
+                }
+            }
+            newBuffer[i] = bestC[0];
+            newBuffer[i+1] = bestC[1];
+            newBuffer[i+2] = bestC[2];
+            newBuffer[i+3] = 255; // Alpha
+        }
+
+        const endTime = performance.now();
+        
+        self.postMessage({
+            buffer: newBuffer,
+            palette: finalPalette,
+            time: endTime - startTime
+        }, [newBuffer.buffer]); // Transferable
+    };
+</script>
+
+    <script>
+        // --- State Management ---
+        const state = {
+            originalImg: null,
+            resizedCanvas: document.createElement('canvas'),
+            quantizedCanvas: document.createElement('canvas'),
+            viewMode: 'slider-h', // 'split-h', 'slider-h', 'slider-v'
+            k: 8,
+            isProcessing: false,
+            worker: null,
+            targetWidth: 1000,
+            // Pan/Zoom State
+            panX: 0,
+            panY: 0,
+            zoom: 1,
+            isDragging: false,
+            lastMouseX: 0,
+            lastMouseY: 0,
+            sliderPos: 50
+        };
+
+        // --- DOM Elements ---
+        const fileInput = document.getElementById('file-input');
+        const qualitySelect = document.getElementById('quality-select');
+        const kSlider = document.getElementById('k-slider');
+        const kNumber = document.getElementById('k-number');
+        const runBtn = document.getElementById('run-btn');
+        const stage = document.getElementById('stage');
+        const paletteDisplay = document.getElementById('palette-display');
+        const statsDiv = document.getElementById('stats');
+        const loader = document.getElementById('loader');
+        const viewToggles = document.querySelectorAll('.toggle-btn');
+        const downloadBtn = document.getElementById('download-btn');
+
+        // --- Web Worker Setup ---
+        function initWorker() {
+            const blob = new Blob([document.getElementById('worker-code').textContent], { type: "text/javascript" });
+            state.worker = new Worker(window.URL.createObjectURL(blob));
+
+            state.worker.onmessage = function (e) {
+                const { buffer, palette, time } = e.data;
+
+                // Draw Result
+                const ctx = state.quantizedCanvas.getContext('2d');
+                const imgData = new ImageData(buffer, state.resizedCanvas.width, state.resizedCanvas.height);
+                ctx.putImageData(imgData, 0, 0);
+
+                // Update UI
+                updatePaletteUI(palette);
+                renderStage();
+
+                statsDiv.innerHTML = `
+                <strong>Done!</strong><br>
+                Time: ${(time / 1000).toFixed(2)}s<br>
+                Colors: ${state.k}<br>
+                Res: ${state.resizedCanvas.width}x${state.resizedCanvas.height}px
+            `;
+
+                state.isProcessing = false;
+                loader.classList.remove('active');
+                runBtn.disabled = false;
+                downloadBtn.style.display = 'block';
+            };
+        }
+        initWorker();
+
+        // --- Pan & Zoom Logic ---
+        stage.addEventListener('mousedown', (e) => {
+            // Prevent pan if clicking slider handle
+            if (e.target.closest('.slider-handle')) return;
+
+            state.isDragging = true;
+            state.lastMouseX = e.clientX;
+            state.lastMouseY = e.clientY;
+            stage.style.cursor = 'grabbing';
+        });
+
+        window.addEventListener('mouseup', () => {
+            state.isDragging = false;
+            stage.style.cursor = 'grab';
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!state.isDragging) return;
+            e.preventDefault();
+            const dx = e.clientX - state.lastMouseX;
+            const dy = e.clientY - state.lastMouseY;
+            state.panX += dx;
+            state.panY += dy;
+            state.lastMouseX = e.clientX;
+            state.lastMouseY = e.clientY;
+            applyTransform();
+        });
+
+        stage.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const scaleAmount = 0.1;
+            if (e.deltaY < 0) state.zoom += scaleAmount;
+            else state.zoom = Math.max(0.1, state.zoom - scaleAmount);
+            applyTransform();
+        });
+
+        function applyTransform() {
+            const container = document.getElementById('pan-zoom-container');
+            if (container) {
+                container.style.transform = `translate(calc(-50% + ${state.panX}px), calc(-50% + ${state.panY}px)) scale(${state.zoom})`;
+            }
+        }
+
+        function resetPanZoom() {
+            state.panX = 0; state.panY = 0; state.zoom = 1;
+            applyTransform();
+        }
+
+        // --- App Event Listeners ---
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const img = new Image();
+                img.onload = () => {
+                    state.originalImg = img;
+                    runBtn.disabled = false;
+                    processResize();
+
+                    // Clear state
+                    const qCtx = state.quantizedCanvas.getContext('2d');
+                    qCtx.clearRect(0, 0, state.quantizedCanvas.width, state.quantizedCanvas.height);
+                    paletteDisplay.innerHTML = '';
+                    downloadBtn.style.display = 'none';
+
+                    resetPanZoom();
+                    renderStage();
+                    statsDiv.innerHTML = `Image loaded.<br>Original: ${img.width}x${img.height}px`;
+                };
+                img.src = evt.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        qualitySelect.addEventListener('change', (e) => {
+            state.targetWidth = parseInt(e.target.value);
+            if (state.originalImg) {
+                processResize();
+                renderStage();
+                statsDiv.innerHTML += `<br>Resized to target width.`;
+            }
+        });
+
+        // Slider inputs
+        kSlider.addEventListener('input', (e) => {
+            state.k = parseInt(e.target.value);
+            kNumber.value = state.k;
+        });
+        kNumber.addEventListener('input', (e) => {
+            let val = parseInt(e.target.value);
+            if (val < 2) val = 2;
+            if (val > 512) val = 512;
+            state.k = val;
+            kSlider.value = val;
+        });
+
+        viewToggles.forEach(btn => {
+            btn.addEventListener('click', () => {
+                viewToggles.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.viewMode = btn.dataset.mode;
+                renderStage();
+            });
+        });
+
+        runBtn.addEventListener('click', () => {
+            if (!state.originalImg || state.isProcessing) return;
+
+            state.isProcessing = true;
+            runBtn.disabled = true;
+            loader.classList.add('active');
+            statsDiv.textContent = "Quantizing...";
+
+            const ctx = state.resizedCanvas.getContext('2d');
+            const imgData = ctx.getImageData(0, 0, state.resizedCanvas.width, state.resizedCanvas.height);
+
+            state.worker.postMessage({
+                pixels: imgData.data,
+                width: state.resizedCanvas.width,
+                height: state.resizedCanvas.height,
+                k: state.k
+            });
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = `quantized_k${state.k}.png`;
+            link.href = state.quantizedCanvas.toDataURL();
+            link.click();
+        });
+
+        // --- Helpers ---
+
+        function processResize() {
+            if (!state.originalImg) return;
+
+            let w = state.originalImg.width;
+            let h = state.originalImg.height;
+
+            if (state.targetWidth > 0 && w > state.targetWidth) {
+                const scale = state.targetWidth / w;
+                w = state.targetWidth;
+                h = Math.round(h * scale);
+            }
+
+            state.resizedCanvas.width = w;
+            state.resizedCanvas.height = h;
+            state.quantizedCanvas.width = w;
+            state.quantizedCanvas.height = h;
+
+            const ctx = state.resizedCanvas.getContext('2d');
+            ctx.drawImage(state.originalImg, 0, 0, w, h);
+        }
+
+        function updatePaletteUI(palette) {
+            paletteDisplay.innerHTML = '';
+            palette.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'palette-swatch';
+                const colorStr = `rgb(${c[0]},${c[1]},${c[2]})`;
+                div.style.backgroundColor = colorStr;
+                div.title = colorStr;
+                paletteDisplay.appendChild(div);
+            });
+        }
+
+        function cloneCanvas(oldCanvas) {
+            const newCanvas = document.createElement('canvas');
+            newCanvas.width = oldCanvas.width;
+            newCanvas.height = oldCanvas.height;
+            const ctx = newCanvas.getContext('2d');
+            ctx.drawImage(oldCanvas, 0, 0);
+            return newCanvas;
+        }
+
+        // --- Render Logic (The Core Viewport) ---
+
+        function renderStage() {
+            stage.innerHTML = '';
+            if (!state.originalImg) {
+                stage.innerHTML = `<div style="color:#ccc; text-align:center;"><h3 style="margin:0;">No Image Loaded</h3><p>Upload a file to begin.</p></div>`;
+                return;
+            }
+
+            // Create the draggable container
+            const content = document.createElement('div');
+            content.id = 'pan-zoom-container';
+
+            const w = state.resizedCanvas.width;
+            const h = state.resizedCanvas.height;
+            content.style.width = `${w}px`;
+            content.style.height = `${h}px`;
+
+            if (state.viewMode.startsWith('slider')) {
+                content.appendChild(createSliderView(w, h));
+            } else {
+                content.appendChild(createSplitView(w, h));
+            }
+
+            stage.appendChild(content);
+            applyTransform();
+        }
+
+        function createSplitView(w, h) {
+            const grid = document.createElement('div');
+            grid.className = 'view-split';
+            // Side-by-side means container needs 2x width
+            const container = document.getElementById('pan-zoom-container');
+            if (container) container.style.width = `${w * 2}px`;
+
+            const c1 = cloneCanvas(state.resizedCanvas);
+            const c2 = cloneCanvas(state.quantizedCanvas);
+
+            // Wrap for layout
+            const w1 = document.createElement('div'); w1.appendChild(c1);
+            const w2 = document.createElement('div'); w2.appendChild(c2);
+
+            grid.appendChild(w1);
+            grid.appendChild(w2);
+            return grid;
+        }
+
+        function createSliderView(w, h) {
+            const isVert = state.viewMode === 'slider-v';
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'view-slider-container';
+            wrapper.style.width = '100%';
+            wrapper.style.height = '100%';
+
+            // Layer 1: Original (Full)
+            const layer1 = document.createElement('div');
+            layer1.className = 'img-layer';
+            layer1.appendChild(cloneCanvas(state.resizedCanvas));
+
+            // Layer 2: Quantized (Clipped)
+            const layer2 = document.createElement('div');
+            layer2.className = 'img-layer';
+            layer2.style.borderRight = isVert ? 'none' : '2px solid white';
+            layer2.style.borderBottom = isVert ? '2px solid white' : 'none';
+
+            // CRITICAL FIX: The canvas inside layer2 must remain full size
+            // We only change the dimensions of layer2 (the container) to clip it
+            const c2 = cloneCanvas(state.quantizedCanvas);
+            c2.style.width = `${w}px`;
+            c2.style.height = `${h}px`;
+            layer2.appendChild(c2);
+
+            // Handle
+            const handle = document.createElement('div');
+            handle.className = `slider-handle ${isVert ? 'v' : 'h'}`;
+            handle.innerHTML = `<div class="slider-circle" style="cursor:${isVert ? 'row-resize' : 'col-resize'}">
+            ${isVert ? '↕' : '↔'}
+        </div>`;
+
+            // Update logic
+            const updatePos = (pct) => {
+                state.sliderPos = pct;
+                if (isVert) {
+                    layer2.style.height = `${pct}%`;
+                    layer2.style.width = `100%`;
+                    handle.style.top = `${pct}%`;
+                    handle.style.left = `0`;
+                    handle.style.width = `100%`;
+                    handle.style.height = `4px`;
+                } else {
+                    layer2.style.width = `${pct}%`;
+                    layer2.style.height = `100%`;
+                    handle.style.left = `${pct}%`;
+                    handle.style.top = `0`;
+                    handle.style.height = `100%`;
+                    handle.style.width = `4px`;
+                }
+            };
+
+            // Initialize at stored position
+            updatePos(state.sliderPos);
+
+            // Interactivity
+            let isSliding = false;
+            handle.addEventListener('mousedown', (e) => {
+                isSliding = true;
+                e.stopPropagation(); // Stop stage drag
+            });
+
+            // Use window events for dragging outside the handle
+            // We need unique event handlers to remove them later if needed, 
+            // but for this simple app, adding global listeners is fine.
+            window.addEventListener('mouseup', () => isSliding = false);
+            window.addEventListener('mousemove', (e) => {
+                if (!isSliding) return;
+                const rect = wrapper.getBoundingClientRect();
+                let val;
+                if (isVert) {
+                    val = ((e.clientY - rect.top) / rect.height) * 100;
+                } else {
+                    val = ((e.clientX - rect.left) / rect.width) * 100;
+                }
+                if (val < 0) val = 0; if (val > 100) val = 100;
+                updatePos(val);
+            });
+
+            // Touch support
+            handle.addEventListener('touchstart', (e) => { isSliding = true; e.stopPropagation(); });
+            window.addEventListener('touchend', () => isSliding = false);
+            window.addEventListener('touchmove', (e) => {
+                if (!isSliding) return;
+                const rect = wrapper.getBoundingClientRect();
+                let val;
+                if (isVert) {
+                    val = ((e.touches[0].clientY - rect.top) / rect.height) * 100;
+                } else {
+                    val = ((e.touches[0].clientX - rect.left) / rect.width) * 100;
+                }
+                if (val < 0) val = 0; if (val > 100) val = 100;
+                updatePos(val);
+            });
+
+            wrapper.appendChild(layer1);
+            wrapper.appendChild(layer2);
+            wrapper.appendChild(handle);
+            return wrapper;
+        }
+    </script>
+</body>
+
+</html>
